@@ -9,19 +9,8 @@ from common.netconstruct import weight_variable,bias_variable, conv2d,max_pool_2
 import random
 import numpy as np
 from collections import deque
+from DQN.config import cfg_DQN
 
-OBSERVE_LENGTH = 1000
-EXPLORE_LENGTH = 30000
-FINAL_EPSILON = 0.0001
-INITIAL_EPSILON = 0.1
-GAMMA = 0.8  # decay rate of past observations
-# OBSERVE = 100000. # timesteps to observe before training
-# EXPLORE = 2000000. # frames over which to anneal epsilon
-# FINAL_EPSILON = 0.0001 # final value of epsilon
-# INITIAL_EPSILON = 0.0001 # starting value of epsilon
-REPLAY_MEMORY_LENGTH = 50000 # number of previous transitions to remember
-BATCH = 32 # size of minibatch
-FRAME_PER_ACTION = 3
 
 def createNetwork(ACTIONS):
     # network weights
@@ -63,39 +52,52 @@ def createNetwork(ACTIONS):
 
     return s, readout, h_fc1
 
+
 class DQN(object):
-    def __init__(self,ACTIONS):
-        self.ACTIONS = ACTIONS
-        self.status, self.readout,self.h_fc1 = createNetwork(ACTIONS)
-        self.actions = tf.placeholder("float", [None, ACTIONS])
+    def __init__(self, cfg, action_num):
+        print(cfg)
+        self.ACTIONS = action_num
+        self.status, self.readout,self.h_fc1 = createNetwork(self.ACTIONS)
+        actions = tf.placeholder("float", [None, self.ACTIONS])
         self.y = tf.placeholder("float", [None])
-        self.readout_action = tf.reduce_sum(tf.multiply(self.readout, self.actions), reduction_indices=1)
+        self.readout_action = tf.reduce_sum(tf.multiply(self.readout, actions), reduction_indices=1)
         cost = tf.reduce_mean(tf.square(self.y - self.readout_action))
         self.train_step = tf.train.AdamOptimizer(1e-6).minimize(cost)
         self.model_saver = tf.train.Saver()
-
         self.replay_memory = deque()
         self.replay_memory_terminal = deque()
         # store the previous observations in replay memory
-        self.sample_batch = BATCH
+
         self.t = 0
         self.saver = tf.train.Saver()
+
+        # observer phase
+        self.INITIAL_EPSILON = cfg.INITIAL_EPSILON
+        self.epsilon = self.INITIAL_EPSILON
+        self.FINAL_EPSILON = cfg.FINAL_EPSILON
+        self.EXPLORE_NUM = cfg.EXPLORE_NUM
+        self.OBSERVE_NUM = cfg.OBSERVE_NUM
+        self.GAMMA = cfg.GAMMA
+
+        # Q learning parameters
+        self.memory_size = cfg.REPLAY_MEMORY_LENGTH
+        self.sample_batch = cfg.TRAIN_BATCHSIZE
 
     def train(self, s_t, a_t, r_t, s_t1, terminal):
         if terminal:
             self.replay_memory_terminal.append((s_t, a_t, r_t, s_t1, terminal))
         else:
             self.replay_memory.append((s_t, a_t, r_t, s_t1, terminal))
-        if len(self.replay_memory) > REPLAY_MEMORY_LENGTH:
+        if len(self.replay_memory) > self.memory_size:
             self.replay_memory.popleft()
-        if len(self.replay_memory_terminal) > REPLAY_MEMORY_LENGTH:
+        if len(self.replay_memory_terminal) > self.memory_size:
             self.replay_memory_terminal.popleft()
 
-
-        if self.t > OBSERVE_LENGTH:
+        if self.t > self.OBSERVE_NUM:
             # sample a minibatch to train on
+            print("training ")
             minibatch = random.sample(self.replay_memory, self.sample_batch)
-            for i in range(BATCH):
+            for i in range(self.sample_batch):
                 minibatch.append(random.choice(self.replay_memory_terminal))
 
             # get the batch variables
@@ -113,7 +115,7 @@ class DQN(object):
                 if terminal_t:
                     y_batch.append(r_batch[i])
                 else:
-                    y_batch.append(r_batch[i] + GAMMA * np.max(readout_j1_batch[i]))
+                    y_batch.append(r_batch[i] + self.GAMMA * np.max(readout_j1_batch[i]))
 
             # perform gradient step
             self.train_step.run(feed_dict={
@@ -122,9 +124,13 @@ class DQN(object):
                 self.s: s_j_batch}
             )
 
-    def predict_epsion_greedy(self, status,epsilon):
+    def predict_epsion_greedy(self, status):
         import random
-        if random.random() <= epsilon:
+        self.t += 1
+        # scale down epsilon
+        if self.epsilon > self.FINAL_EPSILON and self.t > self.OBSERVE_NUM:
+            self.epsilon -= (self.INITIAL_EPSILON - self.FINAL_EPSILON) / self.EXPLORE_NUM
+        if random.random() <= self.epsilon:
             print("----------Random Action----------")
             readout_t = self.readout.eval(feed_dict={self.status: [status]})[0]
             action_index = random.randrange(self.ACTIONS)
@@ -151,9 +157,9 @@ class DQN(object):
         self.saver.save(tf_sess, save_path, global_step=global_step)
 
 
-
 def main():
-    model = DQN(4)
+    model = DQN(cfg_DQN, 4)
+
 
 if __name__ == "__main__":
     main()
