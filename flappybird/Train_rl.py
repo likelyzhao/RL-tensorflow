@@ -14,9 +14,12 @@ from config.config import cfg
 action_num = cfg.SYSTEM.ACTION_NUM
 DEBUG = False
 
-def frame_process(fram_ori):
-    x_t = cv2.cvtColor(cv2.resize(fram_ori, (80, 80)), cv2.COLOR_BGR2GRAY)
+
+def frame_process(frame_ori, extention=False):
+    x_t = cv2.cvtColor(cv2.resize(frame_ori, (80, 80)), cv2.COLOR_BGR2GRAY)
     x_t = cv2.transpose(x_t)
+    if extention:
+        x_t = np.reshape(x_t, (80, 80, 1))
     #ret, x_t = cv2.threshold(x_t,1,255,cv2.THRESH_BINARY) // option
     if DEBUG:
         cv2.namedWindow("Image")  # 创建一个窗口用来显示图片
@@ -67,8 +70,7 @@ def trainNetwork(sess, model):
 
         frame, r_t, terminal = game_state.frame_step_v2(a_t)
         # run the selected action and observe next state and reward
-        frame = frame_process(frame)
-        frame = np.reshape(frame, (80, 80, 1))
+        frame = frame_process(frame, extention=True)
         s_t1 = np.append(frame, s_t[:, :, :3], axis=2)
 
         model.train(s_t, a_t, r_t, s_t1, terminal)
