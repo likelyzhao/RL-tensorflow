@@ -39,7 +39,7 @@ def trainNetwork(sess, model):
     FRAME_PER_ACTION = cfg.TRAIN.FRAME_PER_ACTION
 
     # open up a game state to communicate with emulator
-    game_state = game.GameState()
+    game_state = game.GameState(cfg.SYSTEM.FLAPPY)
 
     __mkdir(save_path)
     # printing

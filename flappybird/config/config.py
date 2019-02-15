@@ -18,13 +18,13 @@ _C.TRAIN.DQN = cfg_DQN
 # Reward decay for Next Step
 _C.TRAIN.GAMMA = 0.8
 # Path for model save
-_C.TRAIN.MODEL_PATH = "Train"
+_C.TRAIN.SAVE_PATH = "saved_networks_target"
 # Training from somewhere Default is False
 _C.TRAIN.RESUME = False
 # Path for Resume Training Model
 _C.TRAIN.RESUME_PATH = ""
 # action frequency
-_C.TRAIN.FRAME_PER_ACTION = 4
+_C.TRAIN.FRAME_PER_ACTION = 1
 
 _C.TEST = CN()
 # the configs of DQN model

@@ -5,6 +5,8 @@ import pygame
 import flappy_bird_utils
 from itertools import cycle
 
+DEBUG = False
+
 # FPS = 3000
 # SCREENWIDTH = 288
 # SCREENHEIGHT = 512
@@ -27,7 +29,7 @@ from itertools import cycle
 # PLAYER_INDEX_GEN = cycle([0, 1, 2, 1])
 
 class GameState:
-    def __init__(self,cfg):
+    def __init__(self, cfg):
         pygame.init()
         self.FPS = cfg.FPS
         self.SCREENWIDTH = cfg.SCREENWIDTH
@@ -135,11 +137,14 @@ class GameState:
         if self.playerFlapped:
             self.playerFlapped = False
 
-        self.playery += self.playerVelY
-        if self.playery > self.BASEY - self.playery - self.PLAYER_HEIGHT :
-            self.playery = self.BASEY - self.playery - self.PLAYER_HEIGHT
-            reward -=0.1
-        # self.playery += min(self.playerVelY, BASEY - self.playery - PLAYER_HEIGHT)
+        if self.playerVelY > self.BASEY - self.playery - self.PLAYER_HEIGHT:
+            self.playery += self.BASEY - self.playery - self.PLAYER_HEIGHT
+            reward -= 0.1
+        else:
+            self.playery += self.playerVelY
+
+        #self.playery += min(self.playerVelY, self.BASEY - self.playery - self.PLAYER_HEIGHT)
+
         if self.playery < 0:
             self.playery = 0
             reward -= 0.1
@@ -198,6 +203,9 @@ class GameState:
         imagedata_t = 0
         terminal_t = False
         a_t = np.zeros([2]).astype(int)
+        if DEBUG:
+            print("playerVelY", self.playerVelY)
+            print("playery",self.playery)
 
         if sum(input_actions) != 1:
             raise ValueError('Multiple input actions!')
@@ -234,6 +242,8 @@ class GameState:
                 if terminal_t:
                     return imagedata_t, reward_t - 0.1*i, terminal_t
             return imagedata_t, reward_t - 0.3, terminal_t
+
+
 
     def get_score(self):
         return self.score

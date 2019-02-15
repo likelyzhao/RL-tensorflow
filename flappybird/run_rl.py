@@ -54,10 +54,12 @@ def runNetwork(sess,model):
     t = 0
     s_t = s_t_init
     score_total = 0
+    t_step = 0
     while "flappy bird" != "angry bird" and t < cfg.TEST.EPSION_MAX:
         a_t = np.zeros([action_num])
-        if t % cfg.TEST.FRAME_PER_ACTION == 0:
+        if t_step % cfg.TEST.FRAME_PER_ACTION == 0:
             action_index, _ = model.predict(s_t)
+            print("predict action = ",action_index)
         else:
             action_index = 0
         a_t[action_index] = 1
@@ -77,6 +79,7 @@ def runNetwork(sess,model):
             s_t_init = np.stack((frame, frame, frame, frame), axis=2)
             s_t = s_t_init
             t += 1
+        t_step += 1
 
     print("avescore is ", str(score_total*1.0/t))
     a_file.write("avescore is " + str(score_total*1.0/t) + '\n')

@@ -58,9 +58,9 @@ class DQN(object):
         print(cfg)
         self.ACTIONS = action_num
         self.status, self.readout,self.h_fc1 = createNetwork(self.ACTIONS)
-        actions = tf.placeholder("float", [None, self.ACTIONS])
+        self.actions = tf.placeholder("float", [None, self.ACTIONS])
         self.y = tf.placeholder("float", [None])
-        self.readout_action = tf.reduce_sum(tf.multiply(self.readout, actions), reduction_indices=1)
+        self.readout_action = tf.reduce_sum(tf.multiply(self.readout, self.actions), reduction_indices=1)
         cost = tf.reduce_mean(tf.square(self.y - self.readout_action))
         self.train_step = tf.train.AdamOptimizer(1e-6).minimize(cost)
         self.model_saver = tf.train.Saver()
@@ -69,7 +69,7 @@ class DQN(object):
         # store the previous observations in replay memory
 
         self.t = 0
-        self.saver = tf.train.Saver()
+        #self.saver = tf.train.Saver()
 
         # observer phase
         self.INITIAL_EPSILON = cfg.INITIAL_EPSILON
@@ -84,6 +84,7 @@ class DQN(object):
         self.sample_batch = cfg.TRAIN_BATCHSIZE
 
     def train(self, s_t, a_t, r_t, s_t1, terminal):
+        self.t += 1
         if terminal:
             self.replay_memory_terminal.append((s_t, a_t, r_t, s_t1, terminal))
         else:
@@ -95,7 +96,7 @@ class DQN(object):
 
         if self.t > self.OBSERVE_NUM:
             # sample a minibatch to train on
-            print("training ")
+            print("training idx = ", self.t)
             minibatch = random.sample(self.replay_memory, self.sample_batch)
             for i in range(self.sample_batch):
                 minibatch.append(random.choice(self.replay_memory_terminal))
@@ -107,8 +108,8 @@ class DQN(object):
             s_j1_batch = [d[3] for d in minibatch]
 
             y_batch = []
-            # readout_j1_batch = self.readout.eval(feed_dict={s: s_j1_batch})
-            readout_j1_batch = self.pridict(s_j1_batch)
+            readout_j1_batch = self.readout.eval(feed_dict={self.status: s_j1_batch})
+            #readout_j1_batch = self.predict(s_j1_batch)
             for i in range(0, len(minibatch)):
                 terminal_t = minibatch[i][4]
                 # if terminal, only equals reward
@@ -120,13 +121,12 @@ class DQN(object):
             # perform gradient step
             self.train_step.run(feed_dict={
                 self.y: y_batch,
-                self.a: a_batch,
-                self.s: s_j_batch}
+                self.actions: a_batch,
+                self.status: s_j_batch}
             )
 
     def predict_epsion_greedy(self, status):
         import random
-        self.t += 1
         # scale down epsilon
         if self.epsilon > self.FINAL_EPSILON and self.t > self.OBSERVE_NUM:
             self.epsilon -= (self.INITIAL_EPSILON - self.FINAL_EPSILON) / self.EXPLORE_NUM
@@ -147,14 +147,14 @@ class DQN(object):
         # sess.run(tf.initialize_all_variables())
         checkpoint = tf.train.get_checkpoint_state(model_path)
         if checkpoint and checkpoint.model_checkpoint_path:
-            self.saver.restore(tf_sess, checkpoint.model_checkpoint_path)
+            self.model_saver.restore(tf_sess, checkpoint.model_checkpoint_path)
             print("Successfully loaded:", checkpoint.model_checkpoint_path)
         else:
             print("Could not find old network weights")
 
     def save(self, tf_sess, save_path, global_step):
         # sess.run(tf.initialize_all_variables())
-        self.saver.save(tf_sess, save_path, global_step=global_step)
+        self.model_saver.save(tf_sess, save_path + "/dqn", global_step=global_step)
 
 
 def main():
